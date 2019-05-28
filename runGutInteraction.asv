@@ -20,22 +20,16 @@
 % if the growth was not limited 
 % - a is the interaction term describing how fast the predator bacteria can
 % consume the prey bacteria
-% c - is the control of prey consumption rate for low prey bacterial
-% population
-% - b is the growth coefficient of predator bacteria
-% - d is the mortality rate of predator bacteria 
+% c - is the control of prey consumption rate 
 
 
 clear; clc; close all;
 
 % Load the model parameters, these are stored in genGutParameters.mat
-% These parameters will be automatically used in the subsequent
-% calculations and simulations
 load gut_parameters;
-
 Ts=1/4; % Sampling time in days
 Tf=1; % duration of prediction horizon in days
-T = 20; % simulation duration in days
+T = 15; % simulation duration in days
 
 % Number of prediction steps 
 N=ceil(Tf/Ts);
@@ -93,7 +87,7 @@ D=eye(2);
 H = chol(H,'lower');
 H = (H'\eye(size(H)))';
 
-%% Run a linearized simulation of the MPC 
+%% Run a linear simulation
 xTarget=[BTarget-Beq PTarget-Peq]';% target equilibrium state
 x0 = [Binit-Beq Pinit-Peq]'; % starting weights of bacteria
 iA = false(size(bb));
@@ -104,13 +98,6 @@ for t_step=1:length(t)-1
     x(:,t_step+1)=A*x(:,t_step)+B*u;
     u_vec(:,t_step) = u;
 end
-
-%% Run the nonlienar simulation without the input 
-sol = ode45(@(t,y) gut_bacteria_ode(t,y,a,b,c,d,k,r), [0 T], [Binit Pinit]);
-sol_vals = deval(sol,t);
-
-Bsim = sol_vals(1,:);
-Psim = sol_vals(2,:);
 
 %% Plot results
 % Define some plotting variables
@@ -127,25 +114,25 @@ PTarget_plot = PTarget*ones(1,length(t));
 % Make the actual plot
 figure(1);
 sgtitle('Gut microbiome restoration using MPC for optimal nutrients dosing',...
-        'fontsize',20,'interpreter','latex')
+        'interpreter','latex')
 
 subplot(3,1,1)
 hold on
 plot(t,BTarget_plot,'k--','Linewidth',2)
 plot(t, B,'Linewidth',2)
-title('Time evolution of prey bacteria mass','fontsize',15,'interpreter','latex')
-xlabel('Time [Days]','fontsize',12,'interpreter','latex')
-ylabel('Bacteria Mass [g]','fontsize',12,'interpreter','latex')
+title('Time evolution of prey bacteria mass','fontsize',12,'interpreter','latex')
+% xlabel('Time [Days]','interpreter','latex')
+ylabel('Bacteria Mass [g]','interpreter','latex')
 ax1 = gca;
-ax1.YLim  = [0 110];
+ax1.YLim  = [-10 110];
 
 subplot(3,1,2)
 hold on
 plot(t,PTarget_plot,'k--','Linewidth',2)
 plot(t, P,'Linewidth',2)
-title('Time evolution of predator bacteria mass','fontsize',15,'interpreter','latex')
-xlabel('Time [Days]','fontsize',12,'interpreter','latex')
-ylabel('Bacteria Mass [g]','fontsize',12,'interpreter','latex')
+title('Time evolution of predator bacteria mass','fontsize',12,'interpreter','latex')
+% xlabel('Time [Days]','interpreter','latex')
+ylabel('Bacteria Mass [g]','interpreter','latex')
 ax2 = gca;
 ax2.YLim  = [0 110];
 
@@ -154,9 +141,9 @@ hold on
 pUmin = plot(t,Umin,'--','Linewidth',2,'Color','Red');
 pUmax = plot(t,Umax,'--','Linewidth',2,'Color','Red');
 pU = plot(t,U,'b.','markersize',15,'Linewidth',2);
-title('Optimal nutrient feeding rate','fontsize',15,'interpreter','latex')
-xlabel('Time [Days]','fontsize',12,'interpreter','latex')
-ylabel('Rate [1/Day]','fontsize',12,'interpreter','latex')
+title('Optimal nutrient feeding rate','fontsize',12,'interpreter','latex')
+xlabel('Time [Days]','interpreter','latex')
+ylabel('Rate [1/Day]','interpreter','latex')
 ax3 = gca;
 ax3.YLim  = [-2 5];
 ax3.Children(1).Color = [0 0.4470 0.7410];
@@ -164,31 +151,4 @@ ax3.Children(1).Color = [0 0.4470 0.7410];
 fig = gcf;
 fig.Position = [488.0000  107.4000  861.0000  654.6000];
 
-
 % Compare the plot with uncontrolled system
-figure(2);
-sgtitle('Gut microbiome evolution without nutrient dosing',...
-        'fontsize',20,'interpreter','latex')
-
-subplot(2,1,1)
-hold on
-plot(t,BTarget_plot,'k--','Linewidth',2)
-plot(t, Bsim,'Linewidth',2)
-title('Time evolution of prey bacteria mass','fontsize',15,'interpreter','latex')
-xlabel('Time [Days]','fontsize',12,'interpreter','latex')
-ylabel('Bacteria Mass [g]','fontsize',12,'interpreter','latex')
-ax1 = gca;
-ax1.YLim  = [-10 110];
-
-subplot(2,1,2)
-hold on
-plot(t,PTarget_plot,'k--','Linewidth',2)
-plot(t, Psim,'Linewidth',2)
-title('Time evolution of predator bacteria mass','fontsize',15,'interpreter','latex')
-xlabel('Time [Days]','fontsize',12,'interpreter','latex')
-ylabel('Bacteria Mass [g]','fontsize',12,'interpreter','latex')
-ax2 = gca;
-ax2.YLim  = [0 110];
-
-fig = gcf;
-fig.Position = [488.0000 107.4000  861.0000  654.6000];
