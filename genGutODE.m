@@ -1,15 +1,16 @@
+%% 07 August 2019 Miroslav Gasparek
 function [A,B,C,D, Beq, Peq] = genGutODE(a, b, c, d, k, r, Ts)
 % Inputs:
 
 % Outputs:
 % A,B,C,D = State Space matrices of a discrete-time or continuous-time state space model
 
-% replace A,B,C,D with the correct values
+% Defin the empty matrices
 A = zeros(2,2);
 B = zeros(2,1);
 C = zeros(2,2);
 
-%% Compute equilibrium points
+%% Compute equilibrium points of the system
 Beq = c*d/(a*b-d);
 Peq = b*c*r*(a*b*k - c*d - d*k)/(k*(a*b-d)^2);
 

@@ -9,21 +9,26 @@
 % 
 % System equations are as follows:
 % 
-% dB/dt = (r+u)*B*(1-B/k) - a*B*P/(c+B)
-% dP/dt = b*a*B*P/(c+B) - d*P
+% dB/dt = (r+u)*B*(1-B/k) - a*B*P/(c+B), (prey dynamics)
+% dP/dt = b*a*B*P/(c+B) - d*P,           (predator dynamics) 
 % 
 % Where:
-% - B is the prey bacteria population which overgrew
-% - P is the predator bacteria population that we aim to increase 
-% - r is the growth rate of prey bacteria
+% - B is the prey bacteria population which overgrew [g]
+% - P is the predator bacteria population that we aim to increase [g] 
+% 
+% - u is the input representing the modulation of the food source to the
+% bacteria [1/day] 
+% 
+% - r is the growth rate of prey bacteria [1/day]
 % - k is carrying capacity of prey bacteria, what the population would be
-% if the growth was not limited 
+% if the growth was not limited [g]
 % - a is the interaction term describing how fast the predator bacteria can
-% consume the prey bacteria
+% consume the prey bacteria [1/day]
 % c - is the control of prey consumption rate for low prey bacterial
-% population
-% - b is the growth coefficient of predator bacteria
-% - d is the mortality rate of predator bacteria 
+% population [g]
+% - b is the growth coefficient of predator bacteria [dimensionless]
+% - d is the mortality rate of predator bacteria [1/day]
+
 
 
 clear; clc; close all;
@@ -32,6 +37,13 @@ clear; clc; close all;
 % These parameters will be automatically used in the subsequent
 % calculations and simulations
 load gut_parameters;
+%% Define the parameters of the system
+a = 3.2; % [1/day]
+b = 0.6; % [dimensionless]
+c = 50; % [g]
+d = 0.56; % [1/day]
+k = 125;  % [g]
+r = 1.6; % [1/day]
 
 Ts=1/4; % Sampling time in days
 Tf=1; % duration of prediction horizon in days
@@ -46,31 +58,34 @@ N=ceil(Tf/Ts);
 
 %% Declare initial conditions and target conditions
 % Select the target mass of bacterial species
-BTarget = Beq; % g
-PTarget = Peq; % g
+BTarget = Beq; % g, prey mass
+PTarget = Peq; % g, predator mass
 
 % Select the initial amounts of the bacterial species
+% Prey bacterial mass
 Binit = 100; % g
+% Predator bacterial mass
 Pinit = 5; % g
 %% Declare penalty matrices:
-% Put the high penalty on the terminal cost 
-% Relatively low stage cost
-% Small input cost
+% Q: the penalty on the state
+% R: the penalty on the inputs
+% P: the penalty on the terminal state
 Q=1*eye(2);
 P=10*eye(2);
 R=0.1*eye(1);
 
 %% Declare contraints
-% The concentrations must be slightly above zero
+% The concentrations must be slightly above zero, constraints are 
+% relative to the equilibrium points
 cl=[-0.95*Beq; -0.95*Peq];
-% Select the maximum concentratation to be 
+% Select the maximum masses of the species
 ch=[3*Beq; 2*Peq];
 
 % We cannot feed bacteria at "negative" rate, so minimum growth rate is 10%
 % of the normal growth rate
 ul= - 0.9*r;
 
-% Input cannot be more than triple the rate
+% Input cannot be more than triple the normal nutrient rate
 uh=2*r;
 
 % Assume that the variables are independent, hence D is the identity matrix
@@ -95,17 +110,20 @@ H = (H'\eye(size(H)))';
 
 %% Run a linearized simulation of the MPC 
 xTarget=[BTarget-Beq PTarget-Peq]';% target equilibrium state
-x0 = [Binit-Beq Pinit-Peq]'; % starting weights of bacteria
+x0 = [Binit-Beq Pinit-Peq]'; % starting weights of bacteria relative to the equilibrium
 iA = false(size(bb));
 t = 0:Ts:T;
 x = [x0, zeros(2,length(t)-1)];
 for t_step=1:length(t)-1
+    % Solve for the optimal input at each step
     [u,~,iA] = genMPController(H,G,F,bb,J,L,x(:,t_step),xTarget,1,iA);
+    % Perform the transition to the next state
     x(:,t_step+1)=A*x(:,t_step)+B*u;
+    % Store the input to the vector
     u_vec(:,t_step) = u;
 end
 
-%% Run the nonlienar simulation without the input 
+%% Run the nonlienar system simulation without the input 
 sol = ode45(@(t,y) gut_bacteria_ode(t,y,a,b,c,d,k,r), [0 T], [Binit Pinit]);
 sol_vals = deval(sol,t);
 
@@ -114,13 +132,15 @@ Psim = sol_vals(2,:);
 
 %% Plot results
 % Define some plotting variables
-B = Beq + x(1,:);
-P = Peq + x(2,:);
-U = [zeros(1), u_vec];
+B = Beq + x(1,:); % Prey bacteria
+P = Peq + x(2,:); % Predator bacteria 
+U = [zeros(1), u_vec]; % Input
 
+% Plot the input constraints
 Umin = ul*ones(1,length(t));
 Umax = uh*ones(1,length(t));
 
+% Plot the target equilibrium concentrations
 BTarget_plot = BTarget*ones(1,length(t));
 PTarget_plot = PTarget*ones(1,length(t));
 
